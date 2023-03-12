@@ -1,0 +1,16 @@
+# Task-specifc, REC+RES, 8GPUs
+_BASE_: "image_joint_r50.yaml"
+MODEL:
+  WEIGHTS: "weights/R-50.pkl"
+DATASETS:
+  TRAIN: ("refcoco-mixed", )
+  TEST: ("refcoco-unc-val", )
+  # "refcoco-unc-testA", "refcoco-unc-testB", "refcocoplus-unc-val", "refcocoplus-unc-testA", "refcocoplus-unc-testB", "refcocog-google-val", "refcocog-umd-val", "refcocog-umd-test"
+SOLVER:
+  STEPS: (158635,) # 20 epoch
+  MAX_ITER: 190362 # 24 epoch
+DATALOADER:
+  DATASET_RATIO: [1]
+  DATASET_BS: [2]
+  USE_RFS: [False]
+OUTPUT_DIR: outputs/single_task_rec

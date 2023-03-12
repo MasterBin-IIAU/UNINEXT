@@ -1,0 +1,34 @@
+# Task-specifc, RVOS, 8GPUs
+_BASE_: "video_joint_r50.yaml"
+MODEL:
+  WEIGHTS: "outputs/single_task_rec/model_final_4c.pth"
+DATASETS:
+  TRAIN: 
+  # R-VOS
+  - "rvos-refcoco-mixed"
+  - "rvos-refytb-train"
+  TEST: ("rvos-refytb-val", )
+SOLVER:
+  STEPS: (75000,)
+  MAX_ITER: 90000
+INPUT:
+  MIN_SIZE_TRAIN_MULTI:
+  # R-VOS
+  - [480, 512, 544, 576, 608, 640, 672, 704, 736, 768, 800]
+  - [320, 352, 392, 416, 448, 480, 512, 544, 576, 608, 640]
+  MAX_SIZE_TRAIN_MULTI:
+  # R-VOS
+  - 1333
+  - 768
+DATALOADER:
+  DATASET_RATIO:
+  # R-VOS (ref-coco:ref-ytbvos=2:1)
+  - 0.67
+  - 0.33
+  USE_DIFF_BS_SIZE: True
+  DATASET_BS:
+  # R-VOS
+  - 2
+  - 2
+  USE_RFS: [False, False]
+OUTPUT_DIR: outputs/single_task_rvos

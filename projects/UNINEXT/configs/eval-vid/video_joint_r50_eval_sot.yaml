@@ -1,0 +1,7 @@
+# All video-level tasks joint training (16 GPU training)
+# main setting (R50 video-level joint training)
+_BASE_: "../video_joint_r50.yaml" # all video tasks joint training
+DATASETS:
+  TEST: ("sot_lasot_test", "sot_lasot_ext_test", "sot_trackingnet_test", "sot_tnl2k_test")
+INPUT:
+  MIN_SIZE_TEST: 800

@@ -1,0 +1,9 @@
+# Step1: Obj365 pretraining (32 GPUs) ConvNeXt-Large
+_BASE_: "obj365v2_32g_r50.yaml"
+MODEL:
+  WEIGHTS: "weights/convnext_large_22k_1k_384_new.pkl"
+  BACKBONE:
+    NAME: "D2ConvNeXt"
+  CONVNEXT:
+    NAME: "large"
+OUTPUT_DIR: "outputs/obj365v2_32g_convnext_large"

@@ -1,0 +1,32 @@
+# Stage3: video-level joint training (32 GPUs for ConvNeXt-Large)
+_BASE_: "video_joint_r50.yaml"
+MODEL:
+  WEIGHTS: "outputs/image_joint_convnext_large/model_final_4c.pth"
+  BACKBONE:
+    NAME: "D2ConvNeXt"
+  CONVNEXT:
+    NAME: "large"
+    USE_CHECKPOINT: False
+SOLVER:
+  IMS_PER_BATCH: 32 # invalid when using MultiDatasetSampler
+DATALOADER:
+  DATASET_BS:
+  # VIS
+  - 1
+  - 2
+  - 1
+  # MOT & MOTS
+  - 1
+  - 1
+  - 1
+  - 1
+  # R-VOS
+  - 1
+  - 1
+  # SOT & VOS
+  - 1
+  - 1
+  - 1
+  - 1
+  - 1
+OUTPUT_DIR: outputs/video_joint_convnext_large

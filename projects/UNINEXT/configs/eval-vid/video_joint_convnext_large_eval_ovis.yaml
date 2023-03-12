@@ -1,0 +1,7 @@
+# All video-level tasks joint training (32 GPU training)
+# main setting (ConvNext-Large video-level joint training)
+_BASE_: "../video_joint_convnext_large.yaml" # all video tasks joint training
+DATASETS:
+  TEST: ("ytvis_ovis_val", )
+INPUT:
+  MIN_SIZE_TEST: 720 # 720 for ovis

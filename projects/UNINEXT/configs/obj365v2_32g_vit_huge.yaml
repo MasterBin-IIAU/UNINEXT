@@ -1,0 +1,10 @@
+# Step1: Obj365 pretraining (32 GPUs) ViT-Huge
+_BASE_: "obj365v2_32g_r50.yaml"
+MODEL:
+  WEIGHTS: "weights/mae_pretrain_vit_huge_p14to16.pkl"
+  BACKBONE:
+    NAME: "D2ViT"
+  VIT:
+    NAME: "ViT-huge"
+    USE_CHECKPOINT: True
+OUTPUT_DIR: "outputs/obj365v2_32g_vit_huge"

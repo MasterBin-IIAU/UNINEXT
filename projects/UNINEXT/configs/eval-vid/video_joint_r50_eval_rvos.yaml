@@ -1,0 +1,7 @@
+# All video-level tasks joint training (16 GPU training)
+# main setting (R50 video-level joint training)
+_BASE_: "../video_joint_r50.yaml" # all video tasks joint training
+DATASETS:
+  TEST: ("rvos-refytb-val", "rvos-refdavis-val-0", "rvos-refdavis-val-1", "rvos-refdavis-val-2", "rvos-refdavis-val-3")
+INPUT:
+  MIN_SIZE_TEST: 480

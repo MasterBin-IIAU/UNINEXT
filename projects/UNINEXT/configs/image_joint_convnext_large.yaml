@@ -1,0 +1,9 @@
+# Stage2: Image-level joint training (16 GPUs)
+_BASE_: "image_joint_r50.yaml"
+MODEL:
+  WEIGHTS: "outputs/obj365v2_32g_convnext_large/model_final.pth"
+  BACKBONE:
+    NAME: "D2ConvNeXt"
+  CONVNEXT:
+    NAME: "large"
+OUTPUT_DIR: "outputs/image_joint_convnext_large"

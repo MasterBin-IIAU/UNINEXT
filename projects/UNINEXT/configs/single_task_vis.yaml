@@ -1,0 +1,39 @@
+# Task-specifc, VIS, 8GPUs
+_BASE_: "video_joint_r50.yaml"
+MODEL:
+  WEIGHTS: "outputs/single_task_det/model_final_4c.pth"
+DATASETS:
+  TRAIN: 
+  # VIS
+  - "ytvis_ovis_train"
+  - "ytvis_2019_train"
+  - "coco_2017_train_video"
+  TEST: ("ytvis_2019_val", ) # "ytvis_ovis_val"
+SOLVER:
+  STEPS: (75000,)
+  MAX_ITER: 90000
+INPUT:
+  MIN_SIZE_TRAIN_MULTI:
+  # VIS
+  - [480, 512, 544, 576, 608, 640, 672, 704, 736, 768, 800]
+  - [320, 352, 392, 416, 448, 480, 512, 544, 576, 608, 640]
+  - [480, 512, 544, 576, 608, 640, 672, 704, 736, 768, 800]
+  MAX_SIZE_TRAIN_MULTI:
+  # VIS
+  - 1333
+  - 768
+  - 1333
+DATALOADER:
+  DATASET_RATIO:
+  # VIS (VIS:COCO=1:1)
+  - 0.17
+  - 0.34
+  - 0.51
+  USE_DIFF_BS_SIZE: True
+  DATASET_BS:
+  # VIS
+  - 2
+  - 4
+  - 2
+  USE_RFS: [False, False, False]
+OUTPUT_DIR: outputs/single_task_vis

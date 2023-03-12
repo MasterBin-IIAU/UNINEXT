@@ -1,0 +1,50 @@
+# Task-specifc, SOT+VOS, 8GPUs
+_BASE_: "video_joint_r50.yaml"
+MODEL:
+  WEIGHTS: "outputs/single_task_det/model_final_4c.pth"
+DATASETS:
+  TRAIN: 
+  # SOT & VOS
+  - "sot_got10k_train"
+  - "sot_lasot_train"
+  - "sot_trackingnet_train"
+  - "sot_coco_2017_train"
+  - "sot_ytbvos18_train"
+  TEST: ("sot_ytbvos18_val", )
+SOLVER:
+  STEPS: (75000,)
+  MAX_ITER: 90000
+INPUT:
+  MIN_SIZE_TRAIN_MULTI:
+  # SOT & VOS
+  - [480, 512, 544, 576, 608, 640, 672, 704, 736, 768, 800]
+  - [480, 512, 544, 576, 608, 640, 672, 704, 736, 768, 800]
+  - [480, 512, 544, 576, 608, 640, 672, 704, 736, 768, 800]
+  - [480, 512, 544, 576, 608, 640, 672, 704, 736, 768, 800]
+  - [320, 352, 392, 416, 448, 480, 512, 544, 576, 608, 640]
+  MAX_SIZE_TRAIN_MULTI:
+  # SOT & VOS
+  - 1333
+  - 1333
+  - 1333
+  - 1333
+  - 768
+  MIN_SIZE_TEST: 800 # 720 for ovis
+DATALOADER:
+  DATASET_RATIO:
+  # SOT & VOS
+  - 0.2
+  - 0.2
+  - 0.2
+  - 0.2
+  - 0.2
+  USE_DIFF_BS_SIZE: True
+  DATASET_BS:
+  # SOT & VOS
+  - 2
+  - 2
+  - 2
+  - 2
+  - 2
+  USE_RFS: [False, False, False, False, False]
+OUTPUT_DIR: outputs/single_task_sot

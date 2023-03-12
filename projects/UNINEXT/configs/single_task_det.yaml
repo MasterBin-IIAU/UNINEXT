@@ -1,0 +1,15 @@
+# Task-specifc, OD+IS, 8GPUs
+_BASE_: "image_joint_r50.yaml"
+MODEL:
+  WEIGHTS: "weights/R-50.pkl"
+DATASETS:
+  TRAIN: ("coco_2017_train", )
+  TEST: ("coco_2017_val", ) # "coco_2017_test-dev"
+SOLVER:
+  STEPS: (148000,) # 20 epoch
+  MAX_ITER: 177600 # 24 epoch
+DATALOADER:
+  DATASET_RATIO: [1]
+  DATASET_BS: [2]
+  USE_RFS: [False]
+OUTPUT_DIR: outputs/single_task_det

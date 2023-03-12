@@ -1,0 +1,7 @@
+# All video-level tasks joint training (32 GPU training)
+# main setting (ViT-huge video-level joint training)
+_BASE_: "../video_joint_vit_huge.yaml" # all video tasks joint training
+DATASETS:
+  TEST: ("sot_ytbvos18_val", "sot_davis17_val")
+INPUT:
+  MIN_SIZE_TEST: 480

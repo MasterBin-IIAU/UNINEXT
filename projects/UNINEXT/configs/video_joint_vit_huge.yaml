@@ -1,0 +1,51 @@
+# Stage3: video-level joint training (32 GPUs for ViT-Huge)
+_BASE_: "video_joint_r50.yaml"
+MODEL:
+  WEIGHTS: "outputs/image_joint_vit_huge_32g/model_final_4c.pth"
+  BACKBONE:
+    NAME: "D2ViT"
+  VIT:
+    NAME: "ViT-huge"
+    USE_CHECKPOINT: True
+SOLVER:
+  IMS_PER_BATCH: 32 # invalid when using MultiDatasetSampler
+DATALOADER:
+  DATASET_RATIO:
+  # VIS (VIS:COCO=1:1)
+  - 0.25
+  - 0.25
+  - 0.50
+  # MOT & MOTS (MOT:MOTS=10:1, det:track=1:4)
+  - 0.18
+  - 0.72
+  - 0.02
+  - 0.08
+  # R-VOS (ref-coco:ref-ytbvos=2:1)
+  - 0.67
+  - 0.33
+  # SOT & VOS
+  - 0.2
+  - 0.2
+  - 0.2
+  - 0.2
+  - 0.2
+  DATASET_BS:
+  # VIS
+  - 1
+  - 1
+  - 1
+  # MOT & MOTS
+  - 1
+  - 1
+  - 1
+  - 1
+  # R-VOS
+  - 1
+  - 1
+  # SOT & VOS
+  - 1
+  - 1
+  - 1
+  - 1
+  - 1
+OUTPUT_DIR: outputs/video_joint_vit_huge

@@ -1,0 +1,67 @@
+# Stage2: Image-level joint training (16 GPUs)
+MODEL:
+  USE_IOU_BRANCH: True
+  LANG_GUIDE_DET: True
+  DECOUPLE_TGT: True
+  STILL_TGT_FOR_BOTH: True
+  META_ARCHITECTURE: "UNINEXT_IMG"
+  WEIGHTS: "outputs/obj365v2_32g_r50/model_final.pth"
+  PIXEL_MEAN: [123.675, 116.280, 103.530]
+  PIXEL_STD: [58.395, 57.120, 57.375]
+  MASK_ON: True
+  OTA: True
+  STILL_CLS_FOR_ENCODER: True
+  RESNETS:
+    DEPTH: 50
+    STRIDE_IN_1X1: False
+    OUT_FEATURES: ["res3", "res4", "res5"]
+  DDETRS:
+    NUM_OBJECT_QUERIES: 900
+    TWO_STAGE_NUM_PROPOSALS: 900
+    USE_DINO: True
+    DYNAMIC_LABEL_ENC: True
+    DROPOUT: 0.0
+    TWO_STAGE: True
+    MIXED_SELECTION: True
+    LOOK_FORWARD_TWICE: True
+DATASETS:
+  TRAIN: ("coco_2017_train", "refcoco-mixed")
+  TEST: ("coco_2017_val", "refcoco-unc-val") # "coco_2017_test-dev"
+  # "refcoco-unc-testA", "refcoco-unc-testB", "refcocoplus-unc-val", "refcocoplus-unc-testA", "refcocoplus-unc-testB", "refcocog-umd-val", "refcocog-umd-test"
+SOLVER:
+  IMS_PER_BATCH: 32 # batch-per-gpu = 2
+  BASE_LR: 0.0002 # 2e-4
+  VL_LR: 0.0002 # 2e-4
+  STEPS: (76658,) # 2x (20/24)
+  MAX_ITER: 91990
+  WARMUP_FACTOR: 1.0
+  WARMUP_ITERS: 200
+  WEIGHT_DECAY: 0.05
+  OPTIMIZER: "ADAMW"
+  BACKBONE_MULTIPLIER: 0.1
+  CLIP_GRADIENTS:
+    ENABLED: True
+    CLIP_TYPE: "full_model"
+    CLIP_VALUE: 0.1
+    NORM_TYPE: 2.0
+  CHECKPOINT_PERIOD: 2500
+INPUT:
+  MIN_SIZE_TRAIN: (480, 512, 544, 576, 608, 640, 672, 704, 736, 768, 800)
+  CROP:
+    ENABLED: True
+    TYPE: "absolute_range"
+    SIZE: (384, 600)
+  FORMAT: "RGB"
+TEST:
+  EVAL_PERIOD: 5000
+DATALOADER:
+  SAMPLER_TRAIN: "MultiDatasetSampler"
+  DATASET_RATIO: [1, 1]
+  USE_DIFF_BS_SIZE: True
+  DATASET_BS: [2, 2]
+  # DATASET_INPUT_SIZE: [640, 320]
+  USE_RFS: [False, False]
+  FILTER_EMPTY_ANNOTATIONS: True
+  NUM_WORKERS: 8
+VERSION: 2
+OUTPUT_DIR: outputs/image_joint_r50

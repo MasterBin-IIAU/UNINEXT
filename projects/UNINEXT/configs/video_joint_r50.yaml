@@ -1,0 +1,174 @@
+# Stage3: video-level joint training (16 GPUs)
+UNI_VID: True # all video tasks joint training
+DETACH_REID: True
+USE_DEFORMABLE_REID_HEAD: True
+N_LAYER_DEFORMABLE_REID: 2
+MODEL:
+  USE_IOU_BRANCH: True
+  LANG_GUIDE_DET: True
+  DECOUPLE_TGT: True
+  STILL_TGT_FOR_BOTH: True
+  VL_FUSION_USE_CHECKPOINT: False
+  FREEZE_TEXT_ENCODER: True
+  BACKBONE:
+    FREEZE_AT: 0
+  META_ARCHITECTURE: "UNINEXT_VID"
+  WEIGHTS: "outputs/image_joint_r50/model_final_4c.pth"
+  PIXEL_MEAN: [123.675, 116.280, 103.530]
+  PIXEL_STD: [58.395, 57.120, 57.375]
+  MASK_ON: True
+  OTA: True
+  STILL_CLS_FOR_ENCODER: True
+  RESNETS:
+    DEPTH: 50
+    STRIDE_IN_1X1: False
+    OUT_FEATURES: ["res3", "res4", "res5"]
+  DDETRS:
+    NUM_OBJECT_QUERIES: 900
+    TWO_STAGE_NUM_PROPOSALS: 900
+    USE_DINO: True
+    DYNAMIC_LABEL_ENC: True
+    DROPOUT: 0.0
+    TWO_STAGE: True
+    MIXED_SELECTION: True
+    LOOK_FORWARD_TWICE: True
+SOT:
+  EXTRA_BACKBONE_FOR_TEMPLATE: True
+  FEAT_FUSE: True
+DATASETS:
+  TRAIN: 
+  # VIS
+  - "ytvis_ovis_train"
+  - "ytvis_2019_train"
+  - "coco_2017_train_video"
+  # MOT
+  - "bdd_det_train"
+  - "bdd_box_track_train"
+  - "bdd_inst_train"
+  - "bdd_seg_track_train"
+  # R-VOS
+  - "rvos-refcoco-mixed"
+  - "rvos-refytb-train"
+  # SOT & VOS
+  - "sot_got10k_train"
+  - "sot_lasot_train"
+  - "sot_trackingnet_train"
+  - "sot_coco_2017_train"
+  - "sot_ytbvos18_train"
+  TEST: ("ytvis_2019_val", ) # "ytvis_ovis_val", "rvos-refytb-val"
+SOLVER:
+  IMS_PER_BATCH: 16 # invalid when using MultiDatasetSampler
+  BASE_LR: 0.0001
+  VL_LR: 0.0001
+  STEPS: (150000,)
+  MAX_ITER: 180000
+  WARMUP_FACTOR: 1.0
+  WARMUP_ITERS: 200
+  WEIGHT_DECAY: 0.05
+  OPTIMIZER: "ADAMW"
+  BACKBONE_MULTIPLIER: 0.1
+  CLIP_GRADIENTS:
+    ENABLED: True
+    CLIP_TYPE: "full_model"
+    CLIP_VALUE: 0.1
+    NORM_TYPE: 2.0
+  CHECKPOINT_PERIOD: 2500
+INPUT:
+  SAMPLING_FRAME_NUM: 2
+  SAMPLING_FRAME_RANGE: 10
+  SAMPLING_FRAME_RANGE_MOT: 3
+  SAMPLING_FRAME_RANGE_SOT: 200
+  MIN_SIZE_TRAIN_SAMPLING: "choice_by_clip"
+  RANDOM_FLIP: "flip_by_clip"
+  MIN_SIZE_TRAIN_MULTI:
+  # VIS
+  - [480, 512, 544, 576, 608, 640, 672, 704, 736, 768, 800]
+  - [320, 352, 392, 416, 448, 480, 512, 544, 576, 608, 640]
+  - [480, 512, 544, 576, 608, 640, 672, 704, 736, 768, 800]
+  # MOT & MOTS
+  - [480, 512, 544, 576, 608, 640, 672, 704, 736, 768, 800]
+  - [480, 512, 544, 576, 608, 640, 672, 704, 736, 768, 800]
+  - [480, 512, 544, 576, 608, 640, 672, 704, 736, 768, 800]
+  - [480, 512, 544, 576, 608, 640, 672, 704, 736, 768, 800]
+  # R-VOS
+  - [480, 512, 544, 576, 608, 640, 672, 704, 736, 768, 800]
+  - [320, 352, 392, 416, 448, 480, 512, 544, 576, 608, 640]
+  # SOT & VOS
+  - [480, 512, 544, 576, 608, 640, 672, 704, 736, 768, 800]
+  - [480, 512, 544, 576, 608, 640, 672, 704, 736, 768, 800]
+  - [480, 512, 544, 576, 608, 640, 672, 704, 736, 768, 800]
+  - [480, 512, 544, 576, 608, 640, 672, 704, 736, 768, 800]
+  - [320, 352, 392, 416, 448, 480, 512, 544, 576, 608, 640]
+  MAX_SIZE_TRAIN_MULTI:
+  # VIS
+  - 1333
+  - 768
+  - 1333
+  # MOT & MOTS
+  - 1333
+  - 1333
+  - 1333
+  - 1333
+  # R-VOS
+  - 1333
+  - 768
+  # SOT & VOS
+  - 1333
+  - 1333
+  - 1333
+  - 1333
+  - 768
+  MIN_SIZE_TEST: 480 # 720 for ovis
+  CROP:
+    ENABLED: True
+    TYPE: "absolute_range"
+    SIZE: (384, 600)
+  FORMAT: "RGB"
+TEST:
+  EVAL_PERIOD: 0
+DATALOADER:
+  SAMPLER_TRAIN: "MultiDatasetSampler"
+  DATASET_RATIO:
+  # VIS (VIS:COCO=1:1)
+  - 0.17
+  - 0.34
+  - 0.51
+  # MOT & MOTS (MOT:MOTS=10:1, det:track=1:4)
+  - 0.18
+  - 0.72
+  - 0.02
+  - 0.08
+  # R-VOS (ref-coco:ref-ytbvos=2:1)
+  - 0.67
+  - 0.33
+  # SOT & VOS
+  - 0.2
+  - 0.2
+  - 0.2
+  - 0.2
+  - 0.2
+  USE_DIFF_BS_SIZE: True
+  DATASET_BS:
+  # VIS
+  - 2
+  - 4
+  - 2
+  # MOT & MOTS
+  - 2
+  - 2
+  - 2
+  - 2
+  # R-VOS
+  - 2
+  - 2
+  # SOT & VOS
+  - 2
+  - 2
+  - 2
+  - 2
+  - 2
+  USE_RFS: [False, False, False, False, False, False, False, False, False, False, False, False, False, False]
+  FILTER_EMPTY_ANNOTATIONS: False
+  NUM_WORKERS: 8
+VERSION: 2
+OUTPUT_DIR: outputs/video_joint_r50
