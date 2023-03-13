@@ -37,8 +37,8 @@ UNINEXT can flexibly perceive various types of objects by simply changing the in
 
 ## Results
 ### Retrieval by Category Names
-![OD-IS](assets/res-od-is.png)
-![MOT-MOTS-VIS](assets/res-mot-mots-vis.png)
+![OD-IS](assets/res-od.png)
+![MOT-MOTS-VIS](assets/res-vis-mots.png)
 ### Retrieval by Language Expressions
 ![REC-RES-RVOS](assets/res-rec-res-rvos.png)
 ### Retrieval by Target Annotations
