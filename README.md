@@ -1,6 +1,6 @@
 # Universal Instance Perception as Object Discovery and Retrieval
 ![UNINEXT](assets/Framework.png)
-This is the official implementation of the paper [Universal Instance Perception as Object Discovery and Retrieval]().
+This is the official implementation of the paper [Universal Instance Perception as Object Discovery and Retrieval](assets/UNINEXT_Paper.pdf).
 
 ## Highlight
 - UNINEXT is accepted by **CVPR2023**.
