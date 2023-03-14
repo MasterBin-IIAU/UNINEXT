@@ -1,7 +1,20 @@
 # Universal Instance Perception as Object Discovery and Retrieval
 ![UNINEXT](assets/Framework.png)
-This is the official implementation of the paper [Universal Instance Perception as Object Discovery and Retrieval](assets/UNINEXT_Paper.pdf).
+This is the official implementation of the paper [Universal Instance Perception as Object Discovery and Retrieval](https://arxiv.org/abs/2303.06674).
 
+[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/universal-instance-perception-as-object/visual-object-tracking-on-lasot)](https://paperswithcode.com/sota/visual-object-tracking-on-lasot?p=universal-instance-perception-as-object)
+[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/universal-instance-perception-as-object/visual-object-tracking-on-trackingnet)](https://paperswithcode.com/sota/visual-object-tracking-on-trackingnet?p=universal-instance-perception-as-object)
+[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/universal-instance-perception-as-object/visual-tracking-on-tnl2k)](https://paperswithcode.com/sota/visual-tracking-on-tnl2k?p=universal-instance-perception-as-object)
+[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/universal-instance-perception-as-object/multiple-object-tracking-on-bdd100k-val)](https://paperswithcode.com/sota/multiple-object-tracking-on-bdd100k-val?p=universal-instance-perception-as-object)
+[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/universal-instance-perception-as-object/multi-object-tracking-and-segmentation-on-3)](https://paperswithcode.com/sota/multi-object-tracking-and-segmentation-on-3?p=universal-instance-perception-as-object)
+[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/universal-instance-perception-as-object/video-instance-segmentation-on-youtube-vis-1)](https://paperswithcode.com/sota/video-instance-segmentation-on-youtube-vis-1?p=universal-instance-perception-as-object)
+[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/universal-instance-perception-as-object/video-instance-segmentation-on-ovis-1)](https://paperswithcode.com/sota/video-instance-segmentation-on-ovis-1?p=universal-instance-perception-as-object)
+[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/universal-instance-perception-as-object/referring-video-object-segmentation-on-refer)](https://paperswithcode.com/sota/referring-video-object-segmentation-on-refer?p=universal-instance-perception-as-object)
+[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/universal-instance-perception-as-object/referring-expression-comprehension-on-refcoco)](https://paperswithcode.com/sota/referring-expression-comprehension-on-refcoco?p=universal-instance-perception-as-object)
+[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/universal-instance-perception-as-object/referring-expression-comprehension-on-refcoco-1)](https://paperswithcode.com/sota/referring-expression-comprehension-on-refcoco-1?p=universal-instance-perception-as-object)
+[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/universal-instance-perception-as-object/referring-expression-comprehension-on)](https://paperswithcode.com/sota/referring-expression-comprehension-on?p=universal-instance-perception-as-object)
+[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/universal-instance-perception-as-object/referring-expression-segmentation-on-refcoco)](https://paperswithcode.com/sota/referring-expression-segmentation-on-refcoco?p=universal-instance-perception-as-object)
+[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/universal-instance-perception-as-object/referring-expression-segmentation-on-refcoco-3)](https://paperswithcode.com/sota/referring-expression-segmentation-on-refcoco-3?p=universal-instance-perception-as-object)
 ## Highlight
 - UNINEXT is accepted by **CVPR2023**.
 - UNINEXT reformulates diverse instance perception tasks into **a unified object discovery and retrieval paradigm** and can flexibly perceive different types of objects by simply changing the input prompts.
