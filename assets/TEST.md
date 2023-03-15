@@ -1,6 +1,6 @@
 # Tutorial for Testing
 
-We provide two one-key running scripts, [infer.sh](infer.sh) and [infer_large.sh](infer_large.sh), for inference of **UNINEXT-50** and **UNINEXT-L**. Users can either run ```bash assets/xxx.sh``` or run part of commands. Some datasets may need further process to get the metrics. We list them below.
+We provide three one-key running scripts, [infer.sh](infer.sh), [infer_large.sh](infer_large.sh), and [infer_huge.sh](infer_huge.sh) for inference of **UNINEXT-50**, **UNINEXT-L**, and **UNINEXT-H**. Users can either run ```bash assets/xxx.sh``` or run part of commands. Some datasets may need further process to get the metrics. We list them below.
 
 ## Instance Segmentaion
 Please refer to [upload tutorial](https://cocodataset.org/#upload) to prepare the result file then upload it to [COCO Server](https://codalab.lisn.upsaclay.fr/competitions/7383#).

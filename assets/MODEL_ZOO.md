@@ -24,7 +24,7 @@ UNINEXT achieves superior performance on 20 benchmarks, using the same model wit
   </tr>
   <tr>
     <td>ViT-Huge</td>
-    <td>image_joint_vit_huge_32g</td>
+    <td>obj365v2_32g_vit_huge</td>
     <td><a href="https://maildluteducn-my.sharepoint.com/:f:/g/personal/yan_bin_mail_dlut_edu_cn/Es3slaW09a5El6lM2UU5fzsBpEwzzwDnhJtreZpVhrrxrA?e=LUs3vd">model</a></td>
   </tr>
 </table>
