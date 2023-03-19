@@ -67,7 +67,7 @@ class DeformableTransformerVLDINO(nn.Module):
         # for language-guided object detection, vl_fusion layer & language-encoder layer are added.
         vl_fusion_layer = VLFuse(cfg) if cfg.MODEL.USE_EARLY_FUSION else nn.Identity()
         if cfg.MODEL.USE_ADDITIONAL_BERT:
-            lang_cfg = BertConfig.from_pretrained("projects/DDETRS/bert-base-uncased")
+            lang_cfg = BertConfig.from_pretrained("projects/UNINEXT/bert-base-uncased")
             lang_encoder_layer = BertEncoderLayer(lang_cfg, \
                 clamp_min_for_underflow=cfg.MODEL.DYHEAD.FUSE_CONFIG.CLAMP_BERTATTN_MIN_FOR_UNDERFLOW, # True
                 clamp_max_for_overflow=cfg.MODEL.DYHEAD.FUSE_CONFIG.CLAMP_BERTATTN_MAX_FOR_OVERFLOW)
