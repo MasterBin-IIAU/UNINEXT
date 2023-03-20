@@ -6,8 +6,8 @@ from collections import OrderedDict
 
 
 if __name__ == "__main__":
-    src_path = "image_joint_r50_dino_load_obj365/model_final.pth"
-    des_path = "image_joint_r50_dino_load_obj365/model_final_4c.pth"
+    src_path = "image_joint_r50/model_final.pth"
+    des_path = "image_joint_r50/model_final_4c.pth"
     assert src_path.endswith(".pth")
     data = torch.load(src_path, map_location="cpu")
     data_type = "torch"
