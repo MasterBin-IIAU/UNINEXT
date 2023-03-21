@@ -25,6 +25,8 @@ python3 conversion/convert_convnext.py --source_model weights/convnext_large_22k
 python3 projects/UNINEXT/convert_pth2pkl.py weights/convnext_large_22k_1k_384_new.pth weights/convnext_large_22k_1k_384_new.pkl
 # ViT-Huge
 wget -c https://dl.fbaipublicfiles.com/detectron2/ImageNetPretrained/MAE/mae_pretrain_vit_huge_p14to16.pth
+
+Other pretrained models can be found in [MODEL_ZOO.md](MODEL_ZOO.md)
 ```
 
 ## Data
