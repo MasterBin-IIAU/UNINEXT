@@ -7,8 +7,8 @@ import argparse
 
 def parse_args():
     parser = argparse.ArgumentParser("3-channel to 4-channel converter")
-    parser.add_argument("--src_path", default="image_joint_convnext_large/model_final.pth", type=str, help="")
-    parser.add_argument("--des_path", default="image_joint_convnext_large/model_final_4c.pth", type=str, help="")
+    parser.add_argument("--src_path", default="outputs/image_joint_convnext_large/model_final.pth", type=str, help="")
+    parser.add_argument("--des_path", default="outputs/image_joint_convnext_large/model_final_4c.pth", type=str, help="")
     return parser.parse_args()
 
 if __name__ == "__main__":
