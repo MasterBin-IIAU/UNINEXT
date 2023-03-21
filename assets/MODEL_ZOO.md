@@ -81,6 +81,14 @@ All numbers reported in the paper (Table 1 to Table 10) uses the following model
   </tr>
 </table>
 
+Please note that the pretrained weights used in this stage ends with `model_final_4c.pth`. To obtain these weights, please run the following commands
+
+```
+python3 conversion/convert_3c_to_4c_pth.py
+python3 conversion/convert_3c_to_4c_pth_convnext.py
+python3 conversion/convert_3c_to_4c_pth_vit.py
+```
+
 ### Single Tasks
 We also provide models trained on a single task with ResNet-50 backbone (Table 11 in the paper).
 <table>

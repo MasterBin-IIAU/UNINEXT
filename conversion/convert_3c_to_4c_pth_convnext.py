@@ -3,11 +3,18 @@ import numpy as np
 import copy
 import torch
 from collections import OrderedDict
+import argparse
 
+def parse_args():
+    parser = argparse.ArgumentParser("3-channel to 4-channel converter")
+    parser.add_argument("--src_path", default="image_joint_convnext_large/model_final.pth", type=str, help="")
+    parser.add_argument("--des_path", default="image_joint_convnext_large/model_final_4c.pth", type=str, help="")
+    return parser.parse_args()
 
 if __name__ == "__main__":
-    src_path = "image_joint_convnext_large/model_final.pth"
-    des_path = "image_joint_convnext_large/model_final_4c.pth"
+    args = parse_args()
+    src_path = args.src_path
+    des_path = args.des_path
     assert src_path.endswith(".pth")
     data = torch.load(src_path, map_location="cpu")
     data_type = "torch"
