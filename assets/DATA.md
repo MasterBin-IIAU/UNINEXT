@@ -207,6 +207,7 @@ unzip meta_expressions_test.zip
 rm train.zip valid.zip test.zip meta_expressions_test.zip
 cd ../..
 python3 conversion/convert_refytb2cocovid.py
+python3 conversion/convert_refytvos2ytvis_val.py
 ```
 Download ```DAVIS-2017-Unsupervised-trainval-480p.zip``` and ```DAVIS-2017_semantics-480p.zip``` from [DAVIS website](https://davischallenge.org/davis2017/code.html). Download the text annotations ```davis_text_annotations.zip``` from the [website](https://www.mpi-inf.mpg.de/departments/computer-vision-and-machine-learning/research/video-segmentation/video-object-segmentation-with-language-referring-expressions). Put the zip files under ```datasets/ref-davis```. Run the following commands.
 ```
