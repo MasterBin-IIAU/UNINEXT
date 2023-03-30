@@ -49,7 +49,7 @@ Pretraining on Objects365 requires many training resources. For UNINEXT-50, Obje
 python3 conversion/download_obj365_v2.py
 ```
 Following DINO, we select the first 5,000 out of 80,000 validation images as our
-validation set and add the others to training. We put the processed json files on [Google Drive](), which can be directly downloaded.
+validation set and add the others to training. We put the processed json files on [OneDrive](https://maildluteducn-my.sharepoint.com/:u:/g/personal/yan_bin_mail_dlut_edu_cn/ETscaOUVpeVBmjXUKYHfYvMB5wSxfb9A9Ag4KKe5lL3Xwg?e=3e41N8), which can be directly downloaded.
 We expect that the data is organized as below.
 ```
 ${UNINEXT_ROOT}
