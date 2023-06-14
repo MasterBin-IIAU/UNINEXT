@@ -307,7 +307,7 @@ class UNINEXT_VOTS(nn.Module):
         if self.online_update and (frame_idx % self.update_interval == 0) and (results[0].scores > self.update_thr):
             # update the template
             bboxes_unorm = torch.tensor([[x1, y1, x2, y2]]) / torch.tensor([scale_x, scale_y, scale_x, scale_y])
-            self.language_dict_features_prev, new_template = self.detr.coco_inference_ref_vos(images, bboxes_unorm.to(self.device), results_per_image.pred_masks.float())
+            self.language_dict_features_prev, new_template = self.detr.coco_inference_ref_vos(images, [bboxes_unorm.to(self.device)], [results_per_image.pred_masks.float()[0]])
             if self.debug_only:
                 self.debug_template_4c(new_template, vid_name, obj_idx, frame_idx, save_img_dir)
         
