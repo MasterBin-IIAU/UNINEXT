@@ -552,6 +552,7 @@ class DDETRSegmUniVIDDN(DDETRSegmUniDN):
 
         bz = samples.tensors.shape[0]
         assert bz == 1
+        assert samples.tensors.shape[-2:] == ref_gt_masks[0].shape[-2:]
         # forward template to get language_dict_features_key  
         tensors_ref = samples.tensors # (bs, 3, H, W)
         mask_ref = samples.mask # (bs, H, W)

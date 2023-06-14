@@ -145,14 +145,6 @@ class UNINEXT_VOTS(nn.Module):
         two_stage=two_stage,
         mixed_selection=cfg.MODEL.DDETRS.MIXED_SELECTION,
         cfg=cfg)
-
-        # Language (text encoder and tokenizer)
-        # Here we use BERT as the text encoder in a hard-code way
-        self.tokenizer = AutoTokenizer.from_pretrained("projects/UNINEXT/bert-base-uncased")
-        self.text_encoder = nn.Sequential(OrderedDict([("body", BertEncoder(cfg))]))
-        if cfg.MODEL.FREEZE_TEXT_ENCODER:
-            for p in self.text_encoder.parameters():
-                p.requires_grad_(False)
         
         # backbone for the template branch (for SOT and VOS)
         if cfg.SOT.EXTRA_BACKBONE_FOR_TEMPLATE:
@@ -227,7 +219,7 @@ class UNINEXT_VOTS(nn.Module):
         self.inst_thr_vos = cfg.SOT.INST_THR_VOS
 
 
-    def forward(self, batched_inputs, frame_idx):
+    def forward(self, batched_inputs, frame_idx, obj_idx, mask_anno=None):
         """
         Args:
             batched_inputs: a list, batched outputs of :class:`DatasetMapper` .
@@ -252,45 +244,29 @@ class UNINEXT_VOTS(nn.Module):
         # batchsize = 1 during inference
         height = batched_inputs[0]['height']
         width = batched_inputs[0]['width']
-        video_len = len(batched_inputs[0]["image"])
-        gt_instances = [batched_inputs[0]["instances"][0].to(self.device)]
-        gt_targets = self.prepare_targets_test(gt_instances)
-        init_file_name = batched_inputs[0]["file_names"][0]
-        dataset_name = init_file_name.split("/")[1]
-        if "video" in batched_inputs[0]:
-            vid_name = batched_inputs[0]["video"]
-        else:
-            if dataset_name in ["LaSOT", "LaSOT_extension_subset", "TNL-2K"]:
-                vid_name = init_file_name.split("/")[-3]
-            elif dataset_name in ["GOT10K", "TrackingNet", "ytbvos18", "DAVIS"]:
-                vid_name = init_file_name.split("/")[-2]
-            elif dataset_name == "nfs":
-                vid_name = "nfs_" + init_file_name.split("/")[-2]
-            else:
-                raise NotImplementedError
-        # switch to VOS mode
-        if dataset_name in ["ytbvos18", "DAVIS"]:
-            if self.inference_on_3f:
-                self.inference_ytbvos_3f(batched_inputs, task)
-            else:
-                self.inference_ytbvos(batched_inputs, task)
-            return 
-
+        dataset_name = "vots2023"
         height = batched_inputs[0]["height"]
         width = batched_inputs[0]["width"]
-        clip_inputs = [{'image':batched_inputs[0]['image'][0:1]}]
+        clip_inputs = [{'image':batched_inputs[0]['image']}]
         images = self.preprocess_video(clip_inputs)
+        if self.debug_only:
+            save_dir = "/scratch/binyan/UNINEXT-VOTS/debug"
+            vid_name = "cur_vid"
+            save_img_dir = os.path.join(save_dir, vid_name, obj_idx)
+            if not os.path.exists(save_img_dir):
+                os.makedirs(save_img_dir)
         if frame_idx == 0:
-            self.language_dict_features, _ = self.detr.coco_inference_ref(images, gt_targets)
-            scale_x, scale_y = (
-                width / images.image_sizes[0][1],
-                height / images.image_sizes[0][0],
-            )
-            gt_instances[0].gt_boxes.scale(scale_x, scale_y)
-            gt_instances[0].gt_boxes.clip((height, width))
-            x1, y1, x2, y2 = gt_instances[0].gt_boxes.tensor.tolist()[0]
+            assert mask_anno is not None
+            x1_c, y1_c, w_c, h_c = bounding_box(mask_anno) # current bounding box
+            cur_ref_bboxes = torch.tensor([x1_c, y1_c, x1_c+w_c, y1_c+h_c]).view(1, 4)
+            cur_ref_bboxes = [cur_ref_bboxes.to(self.device)] # List (1, 4)
+            cur_ref_masks = [torch.from_numpy(mask_anno[None]).to(self.device)]
+            self.language_dict_features, template = self.detr.coco_inference_ref_vos(images, cur_ref_bboxes, cur_ref_masks)
             self.language_dict_features_prev = copy.deepcopy(self.language_dict_features)
+            if self.debug_only:
+                self.debug_template_4c(template, vid_name, obj_idx, frame_idx, save_img_dir)
             return
+        assert mask_anno is None
         if self.online_update:
             language_dict_features1 = copy.deepcopy(self.language_dict_features) # Important
             language_dict_features2 = copy.deepcopy(self.language_dict_features_prev) # Important
@@ -318,329 +294,27 @@ class UNINEXT_VOTS(nn.Module):
             x1, y1, x2, y2 = results_per_image.pred_boxes.tensor.tolist()[0]
             # mask
             final_mask = F.interpolate(results_per_image.pred_masks.float(), size=(height, width), mode="bilinear", align_corners=False)
-            final_mask = final_mask[0, 0].cpu().numpy() # (H, W)
+            final_mask = final_mask[0, 0].cpu().numpy().astype(np.uint8) # (H, W)
             if self.debug_only:
                 # debug
-                ori_img = F.interpolate(batched_inputs[0]['image'][frame_idx].unsqueeze(0)[:, :, :images.image_sizes[0][0], :images.image_sizes[0][1]], size=(height, width))
+                ori_img = F.interpolate(batched_inputs[0]['image'][0].unsqueeze(0)[:, :, :images.image_sizes[0][0], :images.image_sizes[0][1]], size=(height, width))
                 img_arr = ori_img[0].permute((1, 2, 0)).cpu().numpy()
                 img_arr = np.ascontiguousarray(img_arr[:, :, ::-1]).clip(0, 255)
                 img_arr_det = copy.deepcopy(img_arr)
                 cv2.rectangle(img_arr_det, (int(x1), int(y1)), (int(x2), int(y2)), color=(0,0,255), thickness=2)
                 img_arr_det[:, :, -1] = np.clip(img_arr_det[:, :, -1] + 128 * final_mask, 0, 255)
-                save_img_dir = os.path.join(save_dir, vid_name)
-                if not os.path.exists(save_img_dir):
-                    os.makedirs(save_img_dir)
                 cv2.imwrite(os.path.join(save_img_dir, "%05d.jpg"%frame_idx), img_arr_det)
         if self.online_update and (frame_idx % self.update_interval == 0) and (results[0].scores > self.update_thr):
             # update the template
             bboxes_unorm = torch.tensor([[x1, y1, x2, y2]]) / torch.tensor([scale_x, scale_y, scale_x, scale_y])
-            cur_targets = [{"bboxes_unorm": bboxes_unorm.to(self.device)}]
-            self.language_dict_features_prev, new_template = self.detr.coco_inference_ref(images, cur_targets)
+            self.language_dict_features_prev, new_template = self.detr.coco_inference_ref_vos(images, bboxes_unorm.to(self.device), results_per_image.pred_masks.float())
             if self.debug_only:
-                self.debug_template_4c(new_template, vid_name, 1, frame_idx)
+                self.debug_template_4c(new_template, vid_name, obj_idx, frame_idx, save_img_dir)
         
         return final_mask
 
 
-    def preprocess_clip_image(self, batched_inputs, clip_idx=None):
-        """
-        Normalize, pad and batch the input images.
-        """
-        if clip_idx is None:
-            images = []
-            for video in batched_inputs:
-                for frame in video["image"]:
-                    images.append(self.normalizer(frame.to(self.device)))
-            images = ImageList.from_tensors(images)
-        else:
-            images = []
-            for video in batched_inputs:
-                for idx in clip_idx:
-                    images.append(self.normalizer(video["image"][idx].to(self.device)))
-            images = ImageList.from_tensors(images)
-        return images
-
-    def inference_ytbvos(self, batched_inputs, task):
-        init_file_name = batched_inputs[0]["file_names"][0]
-        dataset_name = init_file_name.split("/")[1]
-        if dataset_name == "ytbvos18":
-            palette_img = "datasets/ytbvos18/val/Annotations/0a49f5265b/00000.png"
-        elif dataset_name == "DAVIS":
-            palette_img = "datasets/DAVIS/Annotations/480p/bear/00000.png"
-        else:
-            raise ValueError
-        palette = Image.open(palette_img).getpalette()
-        # inference on Youtube-VOS datasets
-        positive_map_label_to_token = {1: [0]}
-        num_classes = len(positive_map_label_to_token) # num_classes during testing
-        # batchsize = 1 during inference
-        height = batched_inputs[0]['height']
-        width = batched_inputs[0]['width']
-        video_len = len(batched_inputs[0]["image"])
-        gt_instances = batched_inputs[0]["instances"]
-        gt_instances = [x.to(self.device) for x in gt_instances]
-        gt_targets = self.prepare_targets_test(gt_instances)
-        assert len(gt_targets) == video_len
-        file_names = batched_inputs[0]["file_names"]
-        if "video" in batched_inputs[0]:
-            vid_name = batched_inputs[0]["video"]
-        else:
-            if dataset_name == "LaSOT":
-                vid_name = init_file_name.split("/")[-3]
-            elif dataset_name in ["GOT10K", "TrackingNet", "ytbvos18", "DAVIS"]:
-                vid_name = init_file_name.split("/")[-2]
-            elif dataset_name == "nfs":
-                vid_name = "nfs_" + init_file_name.split("/")[-2]
-            else:
-                raise NotImplementedError
-        save_dir = os.path.join(self.cfg.OUTPUT_DIR, "inference", dataset_name)
-        if not os.path.exists(save_dir):
-            os.makedirs(save_dir)
-        track_results = []
-        height = batched_inputs[0]["height"]
-        width = batched_inputs[0]["width"]
-        language_dict_features_dict = {}
-        mask_file_names = [x.split("/")[-1].replace(".jpg", ".png") for x in file_names]
-        for frame_idx in range(video_len):
-            clip_inputs = [{'image':batched_inputs[0]['image'][frame_idx:frame_idx+1]}]
-            images = self.preprocess_video(clip_inputs)
-            cur_gt_instances = gt_instances[frame_idx]
-            if len(cur_gt_instances) > 0:
-                # there are new objects appearing in this frame, initialize templates for them
-                ref_bboxes = gt_targets[frame_idx]["bboxes_unorm"] # Tensor with size (N, 4)
-                ref_masks = gt_targets[frame_idx]["masks"]
-                cur_obj_ids = cur_gt_instances.ori_id
-                assert len(ref_bboxes) == len(cur_obj_ids)
-                num_new_obj = len(cur_obj_ids)
-                for obj_idx in range(num_new_obj):
-                    cur_obj_id = cur_obj_ids[obj_idx]
-                    cur_ref_bboxes = [ref_bboxes[obj_idx:obj_idx+1]] # List (1, 4)
-                    cur_ref_masks = [ref_masks[obj_idx:obj_idx+1]]
-                    assert cur_obj_id not in language_dict_features_dict
-                    language_dict_features_dict[cur_obj_id], new_template = self.detr.coco_inference_ref_vos(images, cur_ref_bboxes, cur_ref_masks)
-                    if self.debug_only:
-                        if self.extra_backbone_for_template:
-                            self.debug_template_4c(new_template, int(cur_obj_id))
-                        else:
-                            self.debug_template(new_template, int(cur_obj_id))
-            # track
-            mask_dict = {} # store mask results of different obj_id on the current frame
-            for obj_id, language_dict_features in language_dict_features_dict.items():
-                language_dict_features_cur = copy.deepcopy(language_dict_features) # Important
-                output, _ = self.detr.coco_inference(images, None, None, language_dict_features=language_dict_features_cur, task=task)
-                box_cls = output["pred_logits"]
-                box_pred = output["pred_boxes"]
-                mask_pred = output["pred_masks"] if self.mask_on else [None] * len(batched_inputs)
-                if self.detr.use_iou_branch:
-                    iou_pred = output["pred_boxious"]
-                else:
-                    iou_pred = [None]
-                results = self.inference(box_cls, box_pred, mask_pred, images.image_sizes, positive_map_label_to_token, num_classes, task=task, binary_mask=False, iou_pred=iou_pred)
-                for results_per_image, input_per_image, image_size in zip(results, batched_inputs, images.image_sizes):
-                    scale_x, scale_y = (
-                        width / results_per_image.image_size[1],
-                        height / results_per_image.image_size[0],
-                    )
-                    results_per_image.pred_boxes.scale(scale_x, scale_y)
-                    results_per_image.pred_boxes.clip((height, width))
-                    x1, y1, x2, y2 = results_per_image.pred_boxes.tensor.tolist()[0]
-                    track_results.append([x1, y1, x2-x1, y2-y1]) # (x1, y1, w, h) format
-                    # mask
-                    final_mask = F.interpolate(results_per_image.pred_masks.float(), size=(height, width), mode="bilinear", align_corners=False)
-                    mask_dict[obj_id] = final_mask[0, 0].cpu().numpy() # (H, W)
-            # deal with objects appearing in the current frame
-            if len(cur_gt_instances) > 0:
-                # there are new objects appearing in this frame, replace predicted mask results with gts
-                cur_obj_ids = cur_gt_instances.ori_id
-                num_new_obj = len(cur_obj_ids)
-                gt_masks = gt_targets[frame_idx]["masks"][:, :image_size[0], :image_size[1]]
-                gt_masks = F.interpolate(gt_masks[None].float(), size=(height, width), mode="bilinear", align_corners=False).cpu().numpy()[0]
-                for obj_idx in range(num_new_obj):
-                    cur_obj_id = cur_obj_ids[obj_idx]
-                    mask_dict[cur_obj_id] = gt_masks[obj_idx]
-            # post-processing (soft-aggregation)
-            cur_obj_ids = list(language_dict_features_dict.keys())
-            cur_obj_ids_int = [int(x) for x in cur_obj_ids] # 1, 2, 3...
-            if len(cur_obj_ids_int) != 0:
-                mask_merge = np.zeros((height, width, max(cur_obj_ids_int)+1)) # (H, W, N+1)
-            else:
-                mask_merge = np.zeros((height, width, 1))
-            tmp_list = []
-            for cur_id in cur_obj_ids:
-                mask_merge[:, :, int(cur_id)] = mask_dict[cur_id]
-                tmp_list.append(mask_dict[cur_id])
-            if len(tmp_list) != 0:
-                back_prob = np.prod(1 - np.stack(tmp_list, axis=-1), axis=-1, keepdims=False)
-                mask_merge[:, :, 0] = back_prob
-            mask_merge_final = np.argmax(mask_merge, axis=-1).astype(np.uint8) # (H, W)
-            mask_merge_final = Image.fromarray(mask_merge_final).convert('P')
-            mask_merge_final.putpalette(palette)
-            save_img_dir = os.path.join(save_dir, vid_name)
-            if not os.path.exists(save_img_dir):
-                os.makedirs(save_img_dir)
-            mask_merge_final.save(os.path.join(save_img_dir, mask_file_names[frame_idx]))
-        print("%s done."%vid_name)
-
-    # inference based on three frames: the 1st frame, frame T-1, frame T   
-    def inference_ytbvos_3f(self, batched_inputs, task):
-        init_file_name = batched_inputs[0]["file_names"][0]
-        dataset_name = init_file_name.split("/")[1]
-        if dataset_name == "ytbvos18":
-            palette_img = "datasets/ytbvos18/val/Annotations/0a49f5265b/00000.png"
-        elif dataset_name == "DAVIS":
-            palette_img = "datasets/DAVIS/Annotations/480p/bear/00000.png"
-        else:
-            raise ValueError
-        palette = Image.open(palette_img).getpalette()
-        # inference on Youtube-VOS datasets
-        positive_map_label_to_token = {1: [0]}
-        num_classes = len(positive_map_label_to_token) # num_classes during testing
-        # batchsize = 1 during inference
-        height = batched_inputs[0]['height']
-        width = batched_inputs[0]['width']
-        video_len = len(batched_inputs[0]["image"])
-        gt_instances = batched_inputs[0]["instances"]
-        gt_instances = [x.to(self.device) for x in gt_instances]
-        gt_targets = self.prepare_targets_test(gt_instances)
-        assert len(gt_targets) == video_len
-        file_names = batched_inputs[0]["file_names"]
-        if "video" in batched_inputs[0]:
-            vid_name = batched_inputs[0]["video"]
-        else:
-            if dataset_name == "LaSOT":
-                vid_name = init_file_name.split("/")[-3]
-            elif dataset_name in ["GOT10K", "TrackingNet", "ytbvos18", "DAVIS"]:
-                vid_name = init_file_name.split("/")[-2]
-            elif dataset_name == "nfs":
-                vid_name = "nfs_" + init_file_name.split("/")[-2]
-            else:
-                raise NotImplementedError
-        save_dir = os.path.join(self.cfg.OUTPUT_DIR, "inference", dataset_name)
-        if not os.path.exists(save_dir):
-            os.makedirs(save_dir)
-        track_results = []
-        height = batched_inputs[0]["height"]
-        width = batched_inputs[0]["width"]
-        language_dict_features_dict_init = {}
-        language_dict_features_dict_prev = {}
-        mask_file_names = [x.split("/")[-1].replace(".jpg", ".png") for x in file_names]
-        for frame_idx in range(video_len):
-            clip_inputs = [{'image':batched_inputs[0]['image'][frame_idx:frame_idx+1]}]
-            images = self.preprocess_video(clip_inputs)
-            cur_gt_instances = gt_instances[frame_idx]
-            cur_new_obj_ids = []
-            score_dict = {}
-            if len(cur_gt_instances) > 0:
-                # there are new objects appearing in this frame, initialize templates for them
-                ref_bboxes = gt_targets[frame_idx]["bboxes_unorm"] # Tensor with size (N, 4)
-                ref_masks = gt_targets[frame_idx]["masks"]
-                cur_obj_ids = cur_gt_instances.ori_id
-                assert len(ref_bboxes) == len(cur_obj_ids)
-                num_new_obj = len(cur_obj_ids)
-                for obj_idx in range(num_new_obj):
-                    cur_obj_id = cur_obj_ids[obj_idx]
-                    cur_new_obj_ids.append(cur_obj_id)
-                    cur_ref_bboxes = [ref_bboxes[obj_idx:obj_idx+1]] # List (1, 4)
-                    cur_ref_masks = [ref_masks[obj_idx:obj_idx+1]]
-                    assert cur_obj_id not in language_dict_features_dict_init
-                    language_dict_features_dict_init[cur_obj_id], new_template = self.detr.coco_inference_ref_vos(images, cur_ref_bboxes, cur_ref_masks)
-                    # copy to language_dict_features_dict_prev
-                    language_dict_features_dict_prev[cur_obj_id] = copy.deepcopy(language_dict_features_dict_init[cur_obj_id])
-                    if self.debug_only:
-                        if self.extra_backbone_for_template:
-                            self.debug_template_4c(new_template, vid_name, cur_obj_id, frame_idx)
-                        else:
-                            self.debug_template(new_template, int(cur_obj_id))
-                    score_dict[cur_obj_id] = 1.0
-            # track
-            mask_dict = {} # store mask results of different obj_id on the current frame
-            for obj_id in language_dict_features_dict_init.keys():
-                language_dict_features_init = copy.deepcopy(language_dict_features_dict_init[obj_id]) # Important
-                language_dict_features_prev = copy.deepcopy(language_dict_features_dict_prev[obj_id]) # Important
-                language_dict_features_cur = {}
-                language_dict_features_cur["hidden"] = torch.cat([language_dict_features_init["hidden"], language_dict_features_prev["hidden"]], dim=1)
-                language_dict_features_cur["masks"] = torch.cat([language_dict_features_init["masks"], language_dict_features_prev["masks"]], dim=1)
-                output, _ = self.detr.coco_inference(images, None, None, language_dict_features=language_dict_features_cur, task=task)
-                box_cls = output["pred_logits"]
-                box_pred = output["pred_boxes"]
-                mask_pred = output["pred_masks"] if self.mask_on else [None] * len(batched_inputs)
-                if self.detr.use_iou_branch:
-                    iou_pred = output["pred_boxious"]
-                else:
-                    iou_pred = [None]
-                results = self.inference(box_cls, box_pred, mask_pred, images.image_sizes, positive_map_label_to_token, num_classes, task=task, binary_mask=False, iou_pred=iou_pred)
-                for results_per_image, input_per_image, image_size in zip(results, batched_inputs, images.image_sizes):
-                    scale_x, scale_y = (
-                        width / results_per_image.image_size[1],
-                        height / results_per_image.image_size[0],
-                    )
-                    results_per_image.pred_boxes.scale(scale_x, scale_y)
-                    results_per_image.pred_boxes.clip((height, width))
-                    x1, y1, x2, y2 = results_per_image.pred_boxes.tensor.tolist()[0]
-                    track_results.append([x1, y1, x2-x1, y2-y1]) # (x1, y1, w, h) format
-                    # mask
-                    if dataset_name == "ytbvos18" and results_per_image.scores.item() < self.inst_thr_vos:
-                        mask_dict[obj_id] = np.zeros((height, width))
-                    else:
-                        final_mask = F.interpolate(results_per_image.pred_masks.float(), size=(height, width), mode="bilinear", align_corners=False)
-                        mask_dict[obj_id] = final_mask[0, 0].cpu().numpy() # (H, W)
-                    score_dict[obj_id] = results_per_image.scores.item()
-            # deal with objects appearing in the current frame
-            if len(cur_gt_instances) > 0:
-                # there are new objects appearing in this frame, replace predicted mask results with gts
-                cur_obj_ids = cur_gt_instances.ori_id
-                num_new_obj = len(cur_obj_ids)
-                gt_masks = gt_targets[frame_idx]["masks"][:, :image_size[0], :image_size[1]]
-                gt_masks = F.interpolate(gt_masks[None].float(), size=(height, width), mode="bilinear", align_corners=False).cpu().numpy()[0]
-                for obj_idx in range(num_new_obj):
-                    cur_obj_id = cur_obj_ids[obj_idx]
-                    mask_dict[cur_obj_id] = gt_masks[obj_idx]
-                    score_dict[cur_obj_id] = 1.0
-            # post-processing (soft-aggregation)
-            cur_obj_ids = list(language_dict_features_dict_init.keys())
-            cur_obj_ids_int = [int(x) for x in cur_obj_ids] # 1, 2, 3...
-            if len(cur_obj_ids_int) != 0:
-                mask_merge = np.zeros((height, width, max(cur_obj_ids_int)+1)) # (H, W, N+1)
-            else:
-                mask_merge = np.zeros((height, width, 1))
-            tmp_list = []
-            for cur_id in cur_obj_ids:
-                mask_merge[:, :, int(cur_id)] = mask_dict[cur_id]
-                tmp_list.append(mask_dict[cur_id])
-            if len(tmp_list) != 0:
-                back_prob = np.prod(1 - np.stack(tmp_list, axis=-1), axis=-1, keepdims=False)
-                mask_merge[:, :, 0] = back_prob
-            mask_merge = np.argmax(mask_merge, axis=-1).astype(np.uint8) # (H, W)
-            mask_merge_final = Image.fromarray(mask_merge).convert('P')
-            mask_merge_final.putpalette(palette)
-            save_img_dir = os.path.join(save_dir, vid_name)
-            if not os.path.exists(save_img_dir):
-                os.makedirs(save_img_dir)
-            mask_merge_final.save(os.path.join(save_img_dir, mask_file_names[frame_idx]))
-            # update language_dict_features_dict_prev
-            for cur_id in cur_obj_ids:
-                if cur_id in cur_new_obj_ids:
-                    continue
-                if score_dict[cur_id] < self.update_thr:
-                    continue
-                cur_mask = (mask_merge == int(cur_id))
-                try:
-                    x1_c, y1_c, w_c, h_c = bounding_box(cur_mask) # current bounding box
-                    cur_ref_bboxes = torch.tensor([x1_c, y1_c, x1_c+w_c, y1_c+h_c]).view(1, 4) / torch.tensor([scale_x, scale_y, scale_x, scale_y])
-                    cur_ref_bboxes = [cur_ref_bboxes.to(self.device)] # List (1, 4)
-                    cur_mask_tensor = torch.from_numpy(cur_mask).to(self.device)[None] # (1, H, W)
-                    cur_mask_tensor_rsz = F.interpolate(cur_mask_tensor[None].float(), size=(image_size[0], image_size[1]))[0]
-                    cur_mask_tensor_final = torch.zeros((1, images[0].size(-2), images[0].size(-1)), device=self.device)
-                    cur_mask_tensor_final[:, :image_size[0], :image_size[1]] = cur_mask_tensor_rsz
-                    cur_ref_masks = [cur_mask_tensor_final]
-                    language_dict_features_dict_prev[cur_id], new_template = self.detr.coco_inference_ref_vos(images, cur_ref_bboxes, cur_ref_masks)
-                    if self.debug_only:
-                        self.debug_template_4c(new_template, vid_name, cur_id, frame_idx)
-                except:
-                    continue
-        print("%s done."%vid_name)
-
-    def debug_template_4c(self, samples, vid_name, obj_id, frame_idx):
+    def debug_template_4c(self, samples, vid_name, obj_id, frame_idx, save_img_dir):
         import numpy as np
         import cv2
         mean = np.array([123.675, 116.280, 103.530])
@@ -654,105 +328,9 @@ class UNINEXT_VOTS(nn.Module):
         input_mask = samples.mask[i].float().cpu().numpy() * 255 # (H, W)
         image = np.ascontiguousarray(image[:, :, ::-1]).clip(0, 255)
         image[:, :, -1] = np.clip(image[:, :, -1] + 100 * gt_mask, 0, 255)
-        cv2.imwrite("%s_frame_%05d_obj_%s_img.jpg"%(vid_name, frame_idx, obj_id), image)
-        cv2.imwrite("%s_frame_%05d_obj_%s_mask.jpg"%(vid_name, frame_idx, obj_id), input_mask)
+        cv2.imwrite("%s/%05d_img.jpg"%(save_img_dir, frame_idx), image)
+        cv2.imwrite("%s/%05d_mask.jpg"%(save_img_dir, frame_idx), input_mask)
 
-    def prepare_targets(self, targets):
-        new_targets = []
-        # padding gt_masks to max size over a batch (This is important for training with img pairs)
-        if hasattr(targets[0], "gt_masks"):
-            # mask size: (n_inst, hm, wm)
-            gt_masks_list = [x.gt_masks if self.use_lsj else x.gt_masks.tensor for x in targets]
-            max_size = _max_by_axis([list(m.shape[1:]) for m in gt_masks_list])
-            stride = 32 # size_divisibility
-            # the last two dims are H,W, both subject to divisibility requirement
-            max_size[-2] = (max_size[-2] + (stride - 1)) // stride * stride
-            max_size[-1] = (max_size[-1] + (stride - 1)) // stride * stride
-        for targets_per_image in targets:
-            h, w = targets_per_image.image_size
-            image_size_xyxy = torch.as_tensor([w, h, w, h], dtype=torch.float, device=self.device)
-            gt_classes = targets_per_image.gt_classes
-            gt_boxes = targets_per_image.gt_boxes.tensor / image_size_xyxy
-            gt_boxes = box_xyxy_to_cxcywh(gt_boxes)
-            inst_ids = targets_per_image.gt_ids
-            valid_id = inst_ids!=-1  # if a object is disappeared，its gt_ids is -1
-            # for language-guided detection, classification loss is computed based on the positive map
-            positive_map = targets_per_image.positive_map # (N, 256) or (1, 1). N is number of objects per image
-            if self.use_amp:
-                gt_boxes = gt_boxes.half()
-                image_size_xyxy = image_size_xyxy.half()
-            if hasattr(targets_per_image, "gt_masks"):
-                if self.use_lsj:
-                    gt_masks = targets_per_image.gt_masks
-                else:
-                    gt_masks = targets_per_image.gt_masks.tensor
-                if self.use_amp:
-                    gt_masks = gt_masks.half()
-                # add padding to masks
-                n_inst, hm, wm = gt_masks.size()
-                gt_masks_pad = torch.zeros((n_inst, max_size[0], max_size[1]), device=gt_masks.device, dtype=gt_masks.dtype)
-                gt_masks_pad[:, :hm, :wm].copy_(gt_masks)
-                new_targets.append({"labels": gt_classes, "boxes": gt_boxes, 'masks': gt_masks_pad, "image_size": image_size_xyxy, 
-                "positive_map": positive_map, 'inst_id':inst_ids, "valid": valid_id, "bboxes_unorm": targets_per_image.gt_boxes.tensor})
-            else:
-                new_targets.append({"labels": gt_classes, "boxes": gt_boxes, "image_size": image_size_xyxy, 
-                "positive_map": positive_map, 'inst_id':inst_ids, "valid": valid_id, "bboxes_unorm": targets_per_image.gt_boxes.tensor})
-        bz = len(new_targets) // 2
-        key_ids = list(range(0, len(new_targets), 2))
-        ref_ids = list(range(1, len(new_targets), 2))
-        det_targets = [new_targets[_i] for _i in key_ids] # targets on key frames
-        ref_targets = [new_targets[_i] for _i in ref_ids] # targets on ref frames
-        for i in range(bz):  # fliter empety object in key frame. Note that det_loss is only computed on the key frame !
-            det_target = det_targets[i]
-            ref_target = ref_targets[i]
-            if False in det_target['valid']:
-                valid_i = det_target['valid'].clone()
-                for k,v in det_target.items():
-                    if k != "image_size":
-                        det_target[k] = v[valid_i]
-                for k,v in ref_target.items():
-                    if k != "image_size":
-                        ref_target[k] = v[valid_i]
-
-
-        return det_targets,ref_targets
-
-    def prepare_targets_test(self, targets):
-        new_targets = []
-        for targets_per_image in targets:
-            h, w = targets_per_image.image_size
-            image_size_xyxy = torch.as_tensor([w, h, w, h], dtype=torch.float, device=self.device)
-            gt_classes = targets_per_image.gt_classes
-            gt_boxes = targets_per_image.gt_boxes.tensor / image_size_xyxy
-            gt_boxes = box_xyxy_to_cxcywh(gt_boxes)
-            # for language-guided detection, classification loss is computed based on the positive map
-            positive_map = torch.ones((len(targets_per_image), 1), dtype=torch.bool, device=self.device) # (N, 256) or (1, 1). N is number of objects per image
-            if hasattr(targets_per_image, "gt_masks"):
-                # padding gt_masks to max size over a batch (This is important for training with img pairs)
-                # mask size: (n_inst, hm, wm)
-                gt_masks_list = [targets_per_image.gt_masks if self.use_lsj else targets_per_image.gt_masks.tensor]
-                max_size = _max_by_axis([list(m.shape[1:]) for m in gt_masks_list])
-                stride = 32 # size_divisibility
-                # the last two dims are H,W, both subject to divisibility requirement
-                max_size[-2] = (max_size[-2] + (stride - 1)) // stride * stride
-                max_size[-1] = (max_size[-1] + (stride - 1)) // stride * stride
-                if self.use_lsj:
-                    gt_masks = targets_per_image.gt_masks
-                else:
-                    gt_masks = targets_per_image.gt_masks.tensor
-                if self.use_amp:
-                    gt_masks = gt_masks.half()
-                # add padding to masks
-                n_inst, hm, wm = gt_masks.size()
-                gt_masks_pad = torch.zeros((n_inst, max_size[0], max_size[1]), device=gt_masks.device, dtype=gt_masks.dtype)
-                gt_masks_pad[:, :hm, :wm].copy_(gt_masks)
-                new_targets.append({"labels": gt_classes, "boxes": gt_boxes, 'masks': gt_masks_pad, "image_size": image_size_xyxy, 
-                "positive_map": positive_map, "bboxes_unorm": targets_per_image.gt_boxes.tensor})
-            else:
-                new_targets.append({"labels": gt_classes, "boxes": gt_boxes, "image_size": image_size_xyxy, 
-                "positive_map": positive_map, "bboxes_unorm": targets_per_image.gt_boxes.tensor})
-
-        return new_targets
 
     def inference(self, box_cls, box_pred, mask_pred, image_sizes, positive_map_label_to_token, num_classes, score_thres=0.0, task=None, binary_mask=True, iou_pred=None):
         """
@@ -861,26 +439,6 @@ class UNINEXT_VOTS(nn.Module):
             results.append(result)
         return results
 
-    def preprocess_image(self, batched_inputs):
-        """
-        Normalize, pad and batch the input images.
-        """
-        images = [self.normalizer(x["image"].to(self.device)) for x in batched_inputs]
-        if self.use_lsj and self.training:
-            image_sizes = [x["instances"].image_size for x in batched_inputs]
-            input_masks = [x["padding_mask"].to(self.device) for x in batched_inputs]
-            H, W = images[0].size()[-2:]
-            images_new = torch.zeros((len(images), 3, H, W), device=self.device)
-            for i in range(len(images)):
-                h, w = image_sizes[i]
-                images_new[i, :, :h, :w] = images[i][:, :h, :w]
-            outputs = NestedTensor(images_new, torch.stack(input_masks, dim=0))
-            outputs.image_sizes = image_sizes
-            return outputs
-        else:
-            images = ImageList.from_tensors(images)
-            return images
-
     def preprocess_video(self, batched_inputs):
         """
         Normalize, pad and batch the input images.
@@ -891,24 +449,6 @@ class UNINEXT_VOTS(nn.Module):
                 images.append(self.normalizer(frame.to(self.device)))
         images = ImageList.from_tensors(images)
         return images
-
-    def forward_text(self, captions, device):
-        if isinstance(captions[0], str):
-            tokenized = self.tokenizer.batch_encode_plus(captions,
-                                                        max_length=self.cfg.MODEL.LANGUAGE_BACKBONE.MAX_QUERY_LEN, # 256
-                                                        padding='max_length' if self.cfg.MODEL.LANGUAGE_BACKBONE.PAD_MAX else "longest", # max_length
-                                                        return_special_tokens_mask=True,
-                                                        return_tensors='pt',
-                                                        truncation=True).to(device)
-
-            tokenizer_input = {"input_ids": tokenized.input_ids,
-                            "attention_mask": tokenized.attention_mask}
-            language_dict_features = self.text_encoder(tokenizer_input) # dict with keys: ['aggregate', 'embedded', 'masks', 'hidden']
-            # language_dict_features["masks"] is equal to tokenizer_input["attention_mask"]
-            # aggregate: (bs, 768), embedded: (bs, L, 768), masks: (bs, 768), hidden: (bs, L, 768) L=256 here
-        else:
-            raise ValueError("Please mask sure the caption is a list of string")
-        return language_dict_features
 
 
 class FeatureResizer(nn.Module):
@@ -962,68 +502,3 @@ def _max_by_axis(the_list):
             maxes[index] = max(maxes[index], item)
     return maxes
 
-def bbox2result(bboxes, labels, num_classes):
-    """Convert detection results to a list of numpy arrays.
-
-    Args:
-        bboxes (torch.Tensor | np.ndarray): shape (n, 5)
-        labels (torch.Tensor | np.ndarray): shape (n, )
-        num_classes (int): class number, including background class
-
-    Returns:
-        list(ndarray): bbox results of each class
-    """
-    if bboxes.shape[0] == 0:
-        return [np.zeros((0, 5), dtype=np.float32) for i in range(num_classes)]
-    else:
-        if isinstance(bboxes, torch.Tensor):
-            bboxes = bboxes.detach().cpu().numpy()
-            labels = labels.detach().cpu().numpy()
-        return [bboxes[labels == i, :] for i in range(num_classes)]
-
-def track2result(bboxes, labels, ids, num_classes):
-    valid_inds = ids > -1
-    bboxes = bboxes[valid_inds]
-    labels = labels[valid_inds]
-    ids = ids[valid_inds]
-
-    if bboxes.shape[0] == 0:
-        return [np.zeros((0, 6), dtype=np.float32) for i in range(num_classes)]
-    else:
-        if isinstance(bboxes, torch.Tensor):
-            bboxes = bboxes.cpu().numpy()
-            labels = labels.cpu().numpy()
-            ids = ids.cpu().numpy()
-        return [
-            np.concatenate((ids[labels == i, None], bboxes[labels == i, :]),
-                           axis=1) for i in range(num_classes)
-        ]
-
-def segtrack2result(bboxes, labels, segms, ids):
-    valid_inds = ids > -1
-    bboxes = bboxes[valid_inds].cpu().numpy()
-    labels = labels[valid_inds].cpu().numpy()
-    segms = [segms[i] for i in range(len(segms)) if valid_inds[i] == True]
-    ids = ids[valid_inds].cpu().numpy()
-
-    outputs = defaultdict(list)
-    for bbox, label, segm, id in zip(bboxes, labels, segms, ids):
-        outputs[id] = dict(bbox=bbox, label=label, segm=segm)
-    return outputs
-
-def encode_track_results(track_results):
-    """Encode bitmap mask to RLE code.
-
-    Args:
-        track_results (list | tuple[list]): track results.
-            In mask scoring rcnn, mask_results is a tuple of (segm_results,
-            segm_cls_score).
-
-    Returns:
-        list | tuple: RLE encoded mask.
-    """
-    for id, roi in track_results.items():
-        roi['segm'] = mask_util.encode(
-            np.array(roi['segm'][:, :, np.newaxis], order='F',
-                     dtype='uint8'))[0]  # encoded with RLE
-    return track_results

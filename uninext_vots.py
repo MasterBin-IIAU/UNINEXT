@@ -8,19 +8,25 @@ import torch
 from vot_tool import VOT
 import cv2
 import sys
+import os
+import numpy as np
 
+prj_root = os.path.abspath(os.path.dirname(os.path.abspath(__file__)))
 
 def get_parser():
     parser = argparse.ArgumentParser(description="UNINEXT for builtin configs")
     parser.add_argument(
         "--config-file",
-        default="projects/UNINEXT/configs/eval-vid/video_joint_r50_eval_sot.yaml",
+        default=os.path.join(prj_root, "projects/UNINEXT/configs/eval-vid/video_joint_r50_eval_vots.yaml"),
         help="path to config file",
     )
     parser.add_argument(
         "--opts",
         help="Modify config options using the command-line 'KEY VALUE' pairs",
-        default=["MODEL.WEIGHTS" "outputs/video_joint_r50/model_final.pth"],
+        default=[
+            "MODEL.WEIGHTS", os.path.join(prj_root, "outputs/video_joint_r50/model_final.pth"), \
+            "SOT.ONLINE_UPDATE", "True"
+            ],
         nargs=argparse.REMAINDER,
     )
     return parser
@@ -80,7 +86,7 @@ class UNINEXTPredictor:
         self.input_format = cfg.INPUT.FORMAT
         assert self.input_format in ["RGB", "BGR"], self.input_format
 
-    def __call__(self, original_image, frame_idx):
+    def __call__(self, original_image, frame_idx, obj_idx, original_mask=None):
         """
         Args:
             original_image (np.ndarray): an image of shape (H, W, C) (in BGR order).
@@ -96,17 +102,23 @@ class UNINEXTPredictor:
                 # whether the model expects BGR inputs or RGB
                 original_image = original_image[:, :, ::-1]
             height, width = original_image.shape[:2]
-            image = self.aug.get_transform(original_image).apply_image(original_image)
+            transform = self.aug.get_transform(original_image)
+            image = transform.apply_image(original_image)
             image = torch.as_tensor(image.astype("float32").transpose(2, 0, 1))
-            # for UNINEXT
-            inputs = {"image": image, "height": height, "width": width}
-            prediction = self.model([inputs], frame_idx)
+            inputs = {"image": [image], "height": height, "width": width}
+            if original_mask is not None:
+                mask = make_full_size(original_mask, (width, height))
+                mask = transform.apply_segmentation(mask) # (H, W)
+                # print(mask.shape, image.shape)
+                prediction = self.model([inputs], frame_idx, obj_idx, mask)
+            else:
+                prediction = self.model([inputs], frame_idx, obj_idx)
             return prediction
 
 
 def run_vot_exp():
     handle = VOT("mask", multiobject=True)
-    objects = handle.objects()
+    objects = handle.objects() # List of masks
     imagefile = handle.frame()
     if not imagefile:
         sys.exit(0)
@@ -114,8 +126,8 @@ def run_vot_exp():
     image = cv2.imread(imagefile)
     frame_idx = 0
     trackers = [UNINEXTPredictor() for _ in objects]
-    for tracker, cur_object in zip(trackers, objects):
-        tracker(image, cur_object, frame_idx)
+    for obj_idx, (tracker, cur_object) in enumerate(zip(trackers, objects)):
+        tracker(image, frame_idx, str(obj_idx), cur_object)
 
     while True:
         imagefile = handle.frame()
@@ -123,8 +135,30 @@ def run_vot_exp():
         if not imagefile:
             break
         image = cv2.imread(imagefile)
-        handle.report([tracker(image, frame_idx) for tracker in trackers])
+        res = []
+        for obj_idx, tracker in enumerate(trackers):
+            res.append(tracker(image, frame_idx, str(obj_idx)))
+        handle.report(res)
 
+def make_full_size(x, output_sz):
+    '''
+    zero-pad input x (right and down) to match output_sz
+    x: numpy array e.g., binary mask
+    output_sz: size of the output [width, height]
+    '''
+    if x.shape[0] == output_sz[1] and x.shape[1] == output_sz[0]:
+        return x
+    pad_x = output_sz[0] - x.shape[1]
+    if pad_x < 0:
+        x = x[:, :x.shape[1] + pad_x]
+        # padding has to be set to zero, otherwise pad function fails
+        pad_x = 0
+    pad_y = output_sz[1] - x.shape[0]
+    if pad_y < 0:
+        x = x[:x.shape[0] + pad_y, :]
+        # padding has to be set to zero, otherwise pad function fails
+        pad_y = 0
+    return np.pad(x, ((0, pad_y), (0, pad_x)), 'constant', constant_values=0)
 
 if __name__ == "__main__":
     run_vot_exp()
