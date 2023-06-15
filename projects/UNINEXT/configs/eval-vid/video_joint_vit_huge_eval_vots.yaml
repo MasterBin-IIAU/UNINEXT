@@ -1,0 +1,9 @@
+# All video-level tasks joint training (32 GPU training)
+# main setting (ViT-huge video-level joint training)
+_BASE_: "../video_joint_vit_huge.yaml" # all video tasks joint training
+MODEL:
+  META_ARCHITECTURE: "UNINEXT_VOTS"
+DATASETS:
+  TEST: ("sot_lasot_test", "sot_lasot_ext_test", "sot_trackingnet_test", "sot_tnl2k_test")
+INPUT:
+  MIN_SIZE_TEST: 800

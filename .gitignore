@@ -73,3 +73,8 @@ config.yaml
 
 *.tar.gz
 *.mp4
+
+# VOTS2023
+sequences/
+vots2023
+multiobject

@@ -29,6 +29,7 @@ def get_parser():
             ],
         nargs=argparse.REMAINDER,
     )
+    parser.add_argument("--gpu_id", default=0)
     return parser
 
 def setup_cfg(args):
@@ -116,7 +117,8 @@ class UNINEXTPredictor:
             return prediction
 
 
-def run_vot_exp():
+def run_vot_exp(gpu_id=0):
+    os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
     handle = VOT("mask", multiobject=True)
     objects = handle.objects() # List of masks
     imagefile = handle.frame()

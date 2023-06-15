@@ -39,6 +39,8 @@ import time
 from detectron2.layers import ShapeSpec
 import pycocotools.mask as mask_util
 from scipy.optimize import linear_sum_assignment
+import vot_tool
+
 __all__ = ["UNINEXT_VOTS"]
 
 
@@ -293,17 +295,20 @@ class UNINEXT_VOTS(nn.Module):
             results_per_image.pred_boxes.clip((height, width))
             x1, y1, x2, y2 = results_per_image.pred_boxes.tensor.tolist()[0]
             # mask
-            final_mask = F.interpolate(results_per_image.pred_masks.float(), size=(height, width), mode="bilinear", align_corners=False)
-            final_mask = final_mask[0, 0].cpu().numpy().astype(np.uint8) # (H, W)
-            if self.debug_only:
-                # debug
-                ori_img = F.interpolate(batched_inputs[0]['image'][0].unsqueeze(0)[:, :, :images.image_sizes[0][0], :images.image_sizes[0][1]], size=(height, width))
-                img_arr = ori_img[0].permute((1, 2, 0)).cpu().numpy()
-                img_arr = np.ascontiguousarray(img_arr[:, :, ::-1]).clip(0, 255)
-                img_arr_det = copy.deepcopy(img_arr)
-                cv2.rectangle(img_arr_det, (int(x1), int(y1)), (int(x2), int(y2)), color=(0,0,255), thickness=2)
-                img_arr_det[:, :, -1] = np.clip(img_arr_det[:, :, -1] + 128 * final_mask, 0, 255)
-                cv2.imwrite(os.path.join(save_img_dir, "%05d.jpg"%frame_idx), img_arr_det)
+            if results_per_image.scores.item() < self.inst_thr_vos:
+                final_mask = vot_tool.Empty()
+            else:
+                final_mask = F.interpolate(results_per_image.pred_masks.float(), size=(height, width), mode="bilinear", align_corners=False)
+                final_mask = final_mask[0, 0].cpu().numpy().astype(np.uint8) # (H, W)
+                if self.debug_only:
+                    # debug
+                    ori_img = F.interpolate(batched_inputs[0]['image'][0].unsqueeze(0)[:, :, :images.image_sizes[0][0], :images.image_sizes[0][1]], size=(height, width))
+                    img_arr = ori_img[0].permute((1, 2, 0)).cpu().numpy()
+                    img_arr = np.ascontiguousarray(img_arr[:, :, ::-1]).clip(0, 255)
+                    img_arr_det = copy.deepcopy(img_arr)
+                    cv2.rectangle(img_arr_det, (int(x1), int(y1)), (int(x2), int(y2)), color=(0,0,255), thickness=2)
+                    img_arr_det[:, :, -1] = np.clip(img_arr_det[:, :, -1] + 128 * final_mask, 0, 255)
+                    cv2.imwrite(os.path.join(save_img_dir, "%05d.jpg"%frame_idx), img_arr_det)
         if self.online_update and (frame_idx % self.update_interval == 0) and (results[0].scores > self.update_thr):
             # update the template
             bboxes_unorm = torch.tensor([[x1, y1, x2, y2]]) / torch.tensor([scale_x, scale_y, scale_x, scale_y])
