@@ -253,6 +253,9 @@ class COCOEvaluator(DatasetEvaluator):
         if self._output_dir:
             if "refcoco" in self.dataset_name:
                 file_path = os.path.join(self._output_dir, "{}_instances_results.json".format(self.dataset_name))
+            elif "seginw" in self.dataset_name:
+                dataset_name = self.dataset_name.replace("/", "-")
+                file_path = os.path.join(self._output_dir, "{}_instances_results.json".format(dataset_name))
             else:
                 file_path = os.path.join(self._output_dir, "coco_instances_results.json")
             self._logger.info("Saving results to {}".format(file_path))

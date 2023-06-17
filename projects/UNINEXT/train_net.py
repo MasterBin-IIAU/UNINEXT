@@ -67,14 +67,17 @@ class Trainer(DefaultTrainer):
             output_folder = os.path.join(cfg.OUTPUT_DIR, "inference")
             os.makedirs(output_folder, exist_ok=True)
         evaluator_list = []
-        evaluator_type = MetadataCatalog.get(dataset_name).evaluator_type
+        if dataset_name.startswith("seginw"):
+            evaluator_type = "coco"
+        else:
+            evaluator_type = MetadataCatalog.get(dataset_name).evaluator_type
         if evaluator_type == "lvis":
             evaluator_list.append(LVISEvaluator(dataset_name, cfg, True, output_folder))
         elif evaluator_type == "coco":
             force_tasks = {"bbox"} if "objects365" in cfg.DATASETS.TRAIN[0] else None
             if "refcoco" in dataset_name:
                 evaluator_list.append(COCOEvaluator(dataset_name, cfg, True, output_folder, force_tasks=force_tasks, refcoco=True))
-            elif "coco" in dataset_name or "objects365" in dataset_name:
+            elif "coco" in dataset_name or "objects365" in dataset_name or "seginw" in dataset_name:
                 evaluator_list.append(COCOEvaluator(dataset_name, cfg, True, output_folder, force_tasks=force_tasks, refcoco=False))
         elif evaluator_type == "ytvis":
             evaluator_list.append(YTVISEvaluator(dataset_name, cfg, True, output_folder))
@@ -134,7 +137,7 @@ class Trainer(DefaultTrainer):
             assert cfg.UNI == True
         else:
             dataset_name = cfg.DATASETS.TEST[0]
-        if dataset_name.startswith("coco") or dataset_name.startswith("refcoco") or dataset_name.startswith("objects365_v2"):
+        if dataset_name.startswith("coco") or dataset_name.startswith("refcoco") or dataset_name.startswith("objects365_v2") or dataset_name.startswith("seginw"):
             mapper = DetrDatasetMapperUni(cfg, is_train=False)
         elif dataset_name.startswith('ytvis') or dataset_name.startswith('bdd') or dataset_name.startswith("refytb") or dataset_name.startswith("rvos"):
             mapper = YTVISDatasetMapper(cfg, is_train=False)

@@ -16,6 +16,9 @@ from collections import defaultdict
 from transformers import RobertaTokenizerFast
 from fvcore.transforms.transform import HFlipTransform
 from .objects365_v2 import categories as OBJECTS365V2_CATEGORIES
+from .seginw import CATEGORIES as SEGINW_CATEGORIES
+import os
+
 __all__ = ["DetrDatasetMapper"]
 
 
@@ -160,6 +163,12 @@ class DetrDatasetMapperUni:
                         prompt_test, positive_map_label_to_token = create_queries_and_maps(OBJECTS365V2_CATEGORIES, self.tokenizer)
                         self.prompt_test_dict["obj365v2"] = prompt_test
                         self.positive_map_label_to_token_dict["obj365v2"] = positive_map_label_to_token
+                if cfg.DATASETS.TEST[0].startswith("seginw"):
+                    for dataset_name in cfg.DATASETS.TEST:
+                        if dataset_name.startswith("seginw"):
+                            prompt_test, positive_map_label_to_token = create_queries_and_maps(SEGINW_CATEGORIES[dataset_name], self.tokenizer)
+                            self.prompt_test_dict[dataset_name] = prompt_test
+                            self.positive_map_label_to_token_dict[dataset_name] = positive_map_label_to_token
         # oridinal numbers
         self.ordinal_nums = ["first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth", "tenth"]
     
@@ -280,8 +289,14 @@ class DetrDatasetMapperUni:
             # language-guided detection
             task = dataset_dict["task"] if "task" in dataset_dict else None
             if self.lang_guide_det and task == "detection":
-                dataset_dict["expressions"] = self.prompt_test_dict[dataset_dict["dataset_name"]]
-                dataset_dict["positive_map_label_to_token"] = self.positive_map_label_to_token_dict[dataset_dict["dataset_name"]]
+                if dataset_dict["dataset_name"] == "seginw":
+                    name_list = dataset_dict["file_name"].split("/")[1:3]
+                    dataset_name = os.path.join(*name_list)
+                    dataset_dict["expressions"] = self.prompt_test_dict[dataset_name]
+                    dataset_dict["positive_map_label_to_token"] = self.positive_map_label_to_token_dict[dataset_name]
+                else:
+                    dataset_dict["expressions"] = self.prompt_test_dict[dataset_dict["dataset_name"]]
+                    dataset_dict["positive_map_label_to_token"] = self.positive_map_label_to_token_dict[dataset_dict["dataset_name"]]
             return dataset_dict
 
         if "annotations" in dataset_dict:
