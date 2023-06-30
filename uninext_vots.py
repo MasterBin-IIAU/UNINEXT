@@ -17,14 +17,14 @@ def get_parser():
     parser = argparse.ArgumentParser(description="UNINEXT for builtin configs")
     parser.add_argument(
         "--config-file",
-        default=os.path.join(prj_root, "projects/UNINEXT/configs/eval-vid/video_joint_r50_eval_vots.yaml"),
+        default=os.path.join(prj_root, "projects/UNINEXT/configs/eval-vid/video_joint_vit_huge_eval_vots.yaml"),
         help="path to config file",
     )
     parser.add_argument(
         "--opts",
         help="Modify config options using the command-line 'KEY VALUE' pairs",
         default=[
-            "MODEL.WEIGHTS", os.path.join(prj_root, "outputs/video_joint_r50/model_final.pth"), \
+            "MODEL.WEIGHTS", os.path.join(prj_root, "outputs/video_joint_vit_huge/model_final.pth"), \
             "SOT.ONLINE_UPDATE", "True"
             ],
         nargs=argparse.REMAINDER,

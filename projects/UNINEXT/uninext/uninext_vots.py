@@ -262,7 +262,16 @@ class UNINEXT_VOTS(nn.Module):
             x1_c, y1_c, w_c, h_c = bounding_box(mask_anno) # current bounding box
             cur_ref_bboxes = torch.tensor([x1_c, y1_c, x1_c+w_c, y1_c+h_c]).view(1, 4)
             cur_ref_bboxes = [cur_ref_bboxes.to(self.device)] # List (1, 4)
-            cur_ref_masks = [torch.from_numpy(mask_anno[None]).to(self.device)]
+            size_divisibility = getattr(self.detr.detr.backbone[0].backbone, "size_divisibility", 32)
+            if size_divisibility != 0:
+                mask_h, mask_w = mask_anno.shape
+                mask_h_new = (mask_h + (size_divisibility - 1)) // size_divisibility * size_divisibility
+                mask_w_new = (mask_w + (size_divisibility - 1)) // size_divisibility * size_divisibility
+                mask_anno_new = np.zeros((mask_h_new, mask_w_new), dtype=np.uint8)
+                mask_anno_new[:mask_h, :mask_w] = mask_anno
+                cur_ref_masks = [torch.from_numpy(mask_anno_new[None]).to(self.device)]
+            else:
+                cur_ref_masks = [torch.from_numpy(mask_anno[None]).to(self.device)]
             self.language_dict_features, template = self.detr.coco_inference_ref_vos(images, cur_ref_bboxes, cur_ref_masks)
             self.language_dict_features_prev = copy.deepcopy(self.language_dict_features)
             if self.debug_only:
@@ -298,7 +307,7 @@ class UNINEXT_VOTS(nn.Module):
             if results_per_image.scores.item() < self.inst_thr_vos:
                 final_mask = vot_tool.Empty()
             else:
-                final_mask = F.interpolate(results_per_image.pred_masks.float(), size=(height, width), mode="bilinear", align_corners=False)
+                final_mask = F.interpolate(results_per_image.pred_masks[:,:,:image_size[0],:image_size[1]].float(), size=(height, width), mode="bilinear", align_corners=False)
                 final_mask = final_mask[0, 0].cpu().numpy().astype(np.uint8) # (H, W)
                 if self.debug_only:
                     # debug
@@ -436,7 +445,7 @@ class UNINEXT_VOTS(nn.Module):
                 mask = mask.sigmoid()
                 if binary_mask:
                     mask = mask > self.mask_thres
-                mask = mask[:,:,:image_size[0],:image_size[1]]
+                # mask = mask[:,:,:image_size[0],:image_size[1]]
                 result.pred_masks = mask
                 
             result.scores = scores_per_image

@@ -76,5 +76,5 @@ config.yaml
 
 # VOTS2023
 sequences/
-vots2023
+vots2023*
 multiobject
