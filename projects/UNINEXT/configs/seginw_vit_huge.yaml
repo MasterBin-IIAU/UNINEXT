@@ -1,0 +1,13 @@
+# Stage2: Image-level joint training (32 GPUs for ViT-huge)
+_BASE_: "seginw_r50.yaml"
+MODEL:
+  WEIGHTS: "outputs/obj365v2_32g_vit_huge/model_final.pth"
+  BACKBONE:
+    NAME: "D2ViT"
+  VIT:
+    NAME: "ViT-huge"
+    USE_CHECKPOINT: True
+SOLVER:
+  STEPS: (40000,) # 2x (20/24)
+  MAX_ITER: 48000
+OUTPUT_DIR: "outputs/image_joint_vit_huge_32g"

@@ -418,6 +418,7 @@ class UNINEXT_IMG(nn.Module):
                 
                 if not self.demo_only:
                     # from the remaining queries (N' x C), picking up topk
+                    num_inst = min(num_inst, len(prob.view(-1)))
                     topk_values, topk_indexes = torch.topk(prob.view(-1), num_inst, dim=0)
                     scores = topk_values
                     topk_boxes = torch.div(topk_indexes, logits_per_image.shape[1], rounding_mode='floor')
