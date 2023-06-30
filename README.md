@@ -17,6 +17,11 @@ This is the official implementation of the paper [Universal Instance Perception 
 [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/universal-instance-perception-as-object/referring-expression-comprehension-on-refcoco)](https://paperswithcode.com/sota/referring-expression-comprehension-on-refcoco?p=universal-instance-perception-as-object)
 [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/universal-instance-perception-as-object/referring-expression-comprehension-on)](https://paperswithcode.com/sota/referring-expression-comprehension-on?p=universal-instance-perception-as-object)
 [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/universal-instance-perception-as-object/referring-expression-comprehension-on-refcoco-1)](https://paperswithcode.com/sota/referring-expression-comprehension-on-refcoco-1?p=universal-instance-perception-as-object)
+
+## News
+- :trophy: We are the runner-up in [Segmentation in the Wild challenge](https://eval.ai/web/challenges/challenge-page/1931/leaderboard/4567).
+- :trophy: We are the winner of [BDD100K MOT Challenge](https://eval.ai/web/challenges/challenge-page/1989/leaderboard/4696) and the runner-up of [BDD MOTS Challenge](https://eval.ai/web/challenges/challenge-page/1996/leaderboard/4718) on CVPR2023 workshop.
+
 ## Highlight
 - UNINEXT is accepted by **CVPR2023**.
 - UNINEXT reformulates diverse instance perception tasks into **a unified object discovery and retrieval paradigm** and can flexibly perceive different types of objects by simply changing the input prompts.

@@ -19,12 +19,15 @@ cd weights
 wget -c https://dl.fbaipublicfiles.com/detectron2/ImageNetPretrained/torchvision/R-50.pkl
 # ConvNeXt-Large
 wget -c https://dl.fbaipublicfiles.com/convnext/convnext_large_22k_1k_384.pth
+# ViT-Huge
+wget -c https://dl.fbaipublicfiles.com/detectron2/ImageNetPretrained/MAE/mae_pretrain_vit_huge_p14to16.pth
+
 # Convert ConvNeXt-Large
 cd ..
 python3 conversion/convert_convnext.py --source_model weights/convnext_large_22k_1k_384.pth --output_model weights/convnext_large_22k_1k_384_new.pth
 python3 projects/UNINEXT/convert_pth2pkl.py weights/convnext_large_22k_1k_384_new.pth weights/convnext_large_22k_1k_384_new.pkl
-# ViT-Huge
-wget -c https://dl.fbaipublicfiles.com/detectron2/ImageNetPretrained/MAE/mae_pretrain_vit_huge_p14to16.pth
+# Convert ViT-Huge
+python3 projects/UNINEXT/convert_pth2pkl.py weights/mae_pretrain_vit_huge_p14to16.pth weights/mae_pretrain_vit_huge_p14to16.pkl
 ```
 
 Other pretrained models can be found in [MODEL_ZOO.md](MODEL_ZOO.md)
