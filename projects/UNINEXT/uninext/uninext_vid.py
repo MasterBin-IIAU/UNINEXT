@@ -40,7 +40,9 @@ from detectron2.layers import ShapeSpec
 import pycocotools.mask as mask_util
 from scipy.optimize import linear_sum_assignment
 __all__ = ["UNINEXT_VID"]
-
+import resource
+rlimit = resource.getrlimit(resource.RLIMIT_NOFILE)
+resource.setrlimit(resource.RLIMIT_NOFILE, (2048, rlimit[1]))
 
 @META_ARCH_REGISTRY.register()
 class UNINEXT_VID(nn.Module):
@@ -400,7 +402,7 @@ class UNINEXT_VID(nn.Module):
                             cv2.imwrite("frame_track_%03d.jpg"%(frame_idx), img_arr)
                             cv2.imwrite("frame_det_%03d.jpg"%(frame_idx), img_arr_det)
                     elif dataset_name in ["vis19", "vis21", "ovis"]:
-                        output_h, output_w = self.inference_vis(output, positive_map_label_to_token, num_classes, video_dict, frame_idx)  # (height, width) is resized size,images. image_sizes[0] is original size
+                        output_h, output_w = self.inference_vis(output, positive_map_label_to_token, num_classes, video_dict, frame_idx, (height, width), images.image_sizes[0])  # (height, width) is resized size,images. image_sizes[0] is original size
                     elif dataset_name in ["refytb-val", "rvos-refytb-val"]:
                         final_mask = self.inference_rvos(output, positive_map_label_to_token, num_classes, images.image_sizes, (height, width))
                         video_name, exp_id = batched_inputs[0]["video"], batched_inputs[0]["exp_id"]
@@ -1354,7 +1356,7 @@ class UNINEXT_VID(nn.Module):
 
         return indices
 
-    def inference_vis(self, outputs, positive_map_label_to_token, num_classes, video_dict, i_frame):
+    def inference_vis(self, outputs, positive_map_label_to_token, num_classes, video_dict, i_frame, ori_size, image_sizes):
         """
         Arguments:
             box_cls (Tensor): tensor of shape (batch_size, num_queries, K).
@@ -1421,8 +1423,15 @@ class UNINEXT_VID(nn.Module):
             ids = ids[ids > -1]
             ids = ids.tolist()
             for query_i, id in zip(indices,ids):
+                mask_i = output_mask[query_i]
+                # upsample, resize back to the original image size, transform to rle
+                pred_mask_i = F.interpolate(mask_i[:,None,:,:],  size=(output_h*4, output_w*4) ,mode="bilinear", align_corners=False).sigmoid().to(self.merge_device)
+                pred_mask_i = pred_mask_i[:, :, :image_sizes[0],:image_sizes[1]] # crop the padding area
+                pred_mask_i = F.interpolate(pred_mask_i, size=(ori_size[0], ori_size[1]), mode='nearest') # (1, 1, H, W)
+                pred_mask_i = pred_mask_i[0, 0] > 0.5 # (H, W)
+                pred_mask_i_rle = mask_util.encode(np.array(pred_mask_i[:, :, None].cpu(), order="F", dtype="uint8"))[0]
                 if id in video_dict.keys():
-                    video_dict[id]['masks'].append(output_mask[query_i])
+                    video_dict[id]['masks'].append(pred_mask_i_rle)
                     video_dict[id]['boxes'].append(output_boxes[query_i])
                     video_dict[id]['scores'].append(scores[query_i])
                     video_dict[id]['valid'] = video_dict[id]['valid'] + 1
@@ -1432,7 +1441,7 @@ class UNINEXT_VID(nn.Module):
                         'boxes':[None for fi in range(i_frame)], 
                         'scores':[None for fi in range(i_frame)], 
                         'valid':0}
-                    video_dict[id]['masks'].append(output_mask[query_i])
+                    video_dict[id]['masks'].append(pred_mask_i_rle)
                     video_dict[id]['boxes'].append(output_boxes[query_i])
                     video_dict[id]['scores'].append(scores[query_i])
                     video_dict[id]['valid'] = video_dict[id]['valid'] + 1
@@ -1455,6 +1464,7 @@ class UNINEXT_VID(nn.Module):
                     video_dict.pop(del_k)                      
 
         del outputs
+        torch.cuda.empty_cache()
 
         return output_h, output_w
 
@@ -1480,15 +1490,11 @@ class UNINEXT_VID(nn.Module):
             # category_id = np.argmax(logits_i.mean(0))
             masks_list_i = []
             for n in range(vid_len):
-                mask_i = video_dict[m]['masks'][n] # (1, h//4, w//4)
+                mask_i = video_dict[m]['masks'][n] # (1, h//4, w//4) or rle
                 if mask_i is None:
                     masks_list_i.append(None)
                 else:
-                    pred_mask_i = F.interpolate(mask_i[:,None,:,:],  size=(output_h*4, output_w*4) ,mode="bilinear", align_corners=False).sigmoid().to(self.merge_device)
-                    pred_mask_i = pred_mask_i[:, :, :image_sizes[0],:image_sizes[1]] # crop the padding area
-                    pred_mask_i = F.interpolate(pred_mask_i, size=(ori_size[0], ori_size[1]), mode='nearest') # (1, 1, H, W)
-                    pred_mask_i = pred_mask_i[0, 0] > 0.5 # (H, W)
-                    masks_list_i.append(pred_mask_i)
+                    masks_list_i.append(mask_i)
             masks_list.append(masks_list_i)
         if len(logits_list)>0:
             pred_cls = torch.stack(logits_list)

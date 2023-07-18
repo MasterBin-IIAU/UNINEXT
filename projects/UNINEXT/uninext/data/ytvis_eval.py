@@ -242,7 +242,7 @@ def instances_to_coco_json_video(inputs, outputs):
             if _mask is None:
                 segms.append(dummy_seg)
             else:
-                segms.append(mask_util.encode(np.array(_mask[:, :, None], order="F", dtype="uint8"))[0])
+                segms.append(_mask)
 
         for rle in segms:
             if not isinstance(rle["counts"], str):
